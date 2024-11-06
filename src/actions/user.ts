@@ -1,30 +1,34 @@
 "use server";
 
 import { currentUser } from "@clerk/nextjs/server";
+import client from "@/lib/prisma";
 
 export const onAuthenticateUser = async () => {
   try {
-    const user = await currentUser();
-    console.log('##user', user);
+    const user = await currentUser()
     if (!user) {
-      return { status: 403 };
+      return { status: 403 }
     }
-    const userExists = await prisma?.user.findUnique({
+
+    const userExist = await client.user.findUnique({
       where: {
         clerkid: user.id,
       },
       include: {
         workspace: {
           where: {
-            userId: user.id,
+            User: {
+              clerkid: user.id,
+            },
           },
         },
       },
-    });
-    if (userExists) {
-      return { status: 200, user: userExists };
+    })
+    if (userExist) {
+      return { status: 200, user: userExist }
     }
-    const newUser = await prisma?.user.create({
+    
+    const newUser = await client.user.create({
       data: {
         clerkid: user.id,
         email: user.emailAddresses[0].emailAddress,
@@ -40,14 +44,16 @@ export const onAuthenticateUser = async () => {
         workspace: {
           create: {
             name: `${user.firstName}'s Workspace`,
-            type: "PERSONAL",
+            type: 'PERSONAL',
           },
         },
       },
       include: {
         workspace: {
           where: {
-            userId: user.id,
+            User: {
+              clerkid: user.id,
+            },
           },
         },
         subscription: {
@@ -56,14 +62,14 @@ export const onAuthenticateUser = async () => {
           },
         },
       },
-    });
+    })
     if (newUser) {
-      return { status: 201, user: newUser };
-    } else {
-      return { status: 400, user: null };
+      return { status: 201, user: newUser }
     }
+    return { status: 400 }
   } catch (error) {
-    console.error(error);
-    return { status: 500 };
+    console.log('🔴 ERROR', error)
+    return { status: 500 }
   }
-};
+}
+
